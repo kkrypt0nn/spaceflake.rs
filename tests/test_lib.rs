@@ -13,7 +13,7 @@ mod tests {
         let mut spaceflakes: HashMap<String, Spaceflake> = HashMap::new();
         let settings = spaceflake::BulkGeneratorSettings::new(1_000_000);
         let bulk = spaceflake::bulk_generate(settings).expect("Failed generating the Spaceflakes");
-        for mut spaceflake in bulk {
+        for spaceflake in bulk {
             if spaceflakes.contains_key(spaceflake.string_id().as_str()) {
                 panic!("Spaceflake ID {} is a duplicate", spaceflake.id);
             }
@@ -28,7 +28,7 @@ mod tests {
         let bulk = node
             .bulk_generate(1_000_000)
             .expect("Failed generating the Spaceflakes");
-        for mut spaceflake in bulk {
+        for spaceflake in bulk {
             if spaceflakes.contains_key(spaceflake.string_id().as_str()) {
                 panic!("Spaceflake ID {} is a duplicate", spaceflake.id);
             }
@@ -44,7 +44,7 @@ mod tests {
         let bulk = worker
             .bulk_generate(1_000_000)
             .expect("Failed generating the Spaceflakes");
-        for mut spaceflake in bulk {
+        for spaceflake in bulk {
             if spaceflakes.contains_key(spaceflake.string_id().as_str()) {
                 panic!("Spaceflake ID {} is a duplicate", spaceflake.id);
             }
@@ -56,7 +56,7 @@ mod tests {
     fn generate_at() {
         let mut node = spaceflake::Node::new(1);
         let mut worker = node.new_worker();
-        let mut sf = worker.generate_at(1532180612064).unwrap();
+        let sf = worker.generate_at(1532180612064).unwrap();
         assert_eq!(sf.time(), 1532180612064);
     }
 
@@ -78,7 +78,7 @@ mod tests {
         let mut worker = node.new_worker();
 
         for _ in 0..1000 {
-            let mut sf = worker.generate().expect("Failed generating the Spaceflake");
+            let sf = worker.generate().expect("Failed generating the Spaceflake");
             if spaceflakes.contains_key(sf.string_id().as_str()) {
                 panic!("Spaceflake ID {} is a duplicate", sf.id);
             }
@@ -90,9 +90,9 @@ mod tests {
     fn same_timestamp_different_base_epoch() {
         let mut node = spaceflake::Node::new(1);
         let mut worker = node.new_worker();
-        let mut sf1 = worker.generate().expect("Failed generating the Spaceflake");
+        let sf1 = worker.generate().expect("Failed generating the Spaceflake");
         worker.base_epoch = 1672531200000; // Sunday, January 1, 2023 12:00:00 AM GMT
-        let mut sf2 = worker.generate().expect("Failed generating the Spaceflake");
+        let sf2 = worker.generate().expect("Failed generating the Spaceflake");
         // Thanks Windows
         if (sf1.time() > sf2.time() + 5) || (sf1.time() < sf2.time() - 5) {
             panic!(
@@ -107,7 +107,7 @@ mod tests {
         let settings = spaceflake::GeneratorSettings::default();
 
         for _ in 0..1000 {
-            let mut sf = spaceflake::generate(settings).expect("Failed generating the Spaceflake");
+            let sf = spaceflake::generate(settings).expect("Failed generating the Spaceflake");
             if spaceflakes.contains_key(sf.string_id().as_str()) {
                 panic!("Spaceflake ID {} is a duplicate", sf.id);
             }

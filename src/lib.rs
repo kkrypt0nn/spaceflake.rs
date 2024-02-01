@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::{fmt, thread};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{fmt, thread};
 
 use rand::Rng;
 
@@ -38,10 +38,7 @@ impl fmt::Display for Spaceflake {
 /// The default implementation of a Spaceflake.
 impl Spaceflake {
     fn new(id: u64, base_epoch: u64) -> Self {
-        Spaceflake {
-            base_epoch,
-            id,
-        }
+        Spaceflake { base_epoch, id }
     }
 
     /// Returns the time at which the Spaceflake has been generated.
@@ -65,14 +62,8 @@ impl Spaceflake {
     }
 
     /// Returns the ID of the Spaceflake as a string.
-    #[deprecated(since = "1.1.0", note = "Use `to_string`")]
     pub fn string_id(&self) -> String {
         self.to_string()
-    }
-
-    /// Returns the ID of the Spaceflake as a string.
-    pub fn to_string(&self) -> String {
-        self.id.to_string()
     }
 
     /// Returns the ID in binary of the Spaceflake as a string.
@@ -216,7 +207,9 @@ impl Node {
                 thread::sleep(Duration::from_millis(1));
                 node.workers.clear();
                 worker = node.new_worker();
-            } else if i % MAX_12_BITS as usize == 0 && i % (MAX_12_BITS as usize * MAX_5_BITS as usize) != 0 {
+            } else if i % MAX_12_BITS as usize == 0
+                && i % (MAX_12_BITS as usize * MAX_5_BITS as usize) != 0
+            {
                 let new_worker = node.new_worker();
                 worker = new_worker;
             }

@@ -7,7 +7,7 @@ fn main() {
     };
     let mut sf = spaceflake::generate(settings);
     match sf {
-        Ok(mut value) => {
+        Ok(value) => {
             println!("Generated Spaceflake: {:#?}", value.decompose())
         }
         Err(error) => {
@@ -20,7 +20,7 @@ fn main() {
     settings.sequence = 1337;
     sf = spaceflake::generate(settings);
     match sf {
-        Ok(mut value) => {
+        Ok(value) => {
             println!("Generated Spaceflake: {:#?}", value.decompose())
         }
         Err(error) => {

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{fmt, thread};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rand::Rng;
@@ -24,50 +24,66 @@ const MAX_12_BITS: u64 = 4095;
 pub struct Spaceflake {
     /// The  base epoch that was used to generate the Spaceflake, default is [`EPOCH`].
     base_epoch: u64,
-    /// The Spaceflake ID in a binary format, before being converted to the public decimal [`id`] format.
-    binary_id: String,
     /// The decimal representation of the Spaceflake.
     pub id: u64,
 }
 
+/// The display implementation of a Spaceflake. Will just return its ID.
+impl fmt::Display for Spaceflake {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.id)
+    }
+}
+
 /// The default implementation of a Spaceflake.
 impl Spaceflake {
-    fn default() -> Self {
+    fn new(id: u64, base_epoch: u64) -> Self {
         Spaceflake {
-            base_epoch: 0,
-            binary_id: "".to_string(),
-            id: 0,
+            base_epoch,
+            id,
         }
     }
 
     /// Returns the time at which the Spaceflake has been generated.
-    pub fn time(&mut self) -> u64 {
+    pub fn time(&self) -> u64 {
         (self.id >> 22) + self.base_epoch
     }
 
     /// Returns the node ID of the Spaceflake.
-    pub fn node_id(&mut self) -> u64 {
+    pub fn node_id(&self) -> u64 {
         (self.id & 0x3E0000) >> 17
     }
 
     /// Returns the worker ID of the Spaceflake.
-    pub fn worker_id(&mut self) -> u64 {
+    pub fn worker_id(&self) -> u64 {
         (self.id & 0x1F000) >> 12
     }
 
     /// Returns the sequence of the Spaceflake.
-    pub fn sequence(&mut self) -> u64 {
+    pub fn sequence(&self) -> u64 {
         self.id & 0xFFF
     }
 
     /// Returns the ID of the Spaceflake as a string.
-    pub fn string_id(&mut self) -> String {
-        format!("{}", self.id)
+    #[deprecated(since = "1.1.0", note = "Use `to_string`")]
+    pub fn string_id(&self) -> String {
+        self.to_string()
+    }
+
+    /// Returns the ID of the Spaceflake as a string.
+    pub fn to_string(&self) -> String {
+        self.id.to_string()
     }
 
     /// Returns the ID in binary of the Spaceflake as a string.
-    pub fn binary_id(&mut self) -> String {
-        self.binary_id.to_string()
+    #[deprecated(since = "1.1.0", note = "Use `to_binary`")]
+    pub fn binary_id(&self) -> String {
+        self.to_binary()
+    }
+
+    /// Returns the ID in binary of the Spaceflake as a string.
+    pub fn to_binary(&self) -> String {
+        pad_left(decimal_binary(self.id), 64)
     }
 
     /// Returns a hashmap of key-values with each part of the Spaceflake.
@@ -91,7 +107,7 @@ impl Spaceflake {
     ///     "worker_id": 0,
     /// }
     /// ```
-    pub fn decompose(&mut self) -> HashMap<String, u64> {
+    pub fn decompose(&self) -> HashMap<String, u64> {
         HashMap::<String, u64>::from([
             ("id".to_string(), self.id),
             ("node_id".to_string(), self.node_id()),
@@ -122,7 +138,7 @@ impl Spaceflake {
     ///     "sequence": "100000111111",
     /// }
     /// ```
-    pub fn decompose_binary(&mut self) -> HashMap<String, String> {
+    pub fn decompose_binary(&self) -> HashMap<String, String> {
         HashMap::<String, String>::from([
             ("id".to_string(), pad_left(decimal_binary(self.id), 64)),
             (
@@ -158,6 +174,10 @@ pub struct Node {
 impl Node {
     /// Create a new node for the given ID.
     pub fn new(id: u64) -> Self {
+        if id > MAX_5_BITS {
+            panic!("Node ID must be less than {}", MAX_5_BITS);
+        }
+
         Node {
             id,
             workers: Vec::<Worker>::new(),
@@ -179,7 +199,7 @@ impl Node {
     }
 
     /// Returns the list of workers the node is currently holding.
-    pub fn get_workers(&mut self) -> Vec<Worker> {
+    pub fn get_workers(&self) -> Vec<Worker> {
         self.workers.clone()
     }
 
@@ -189,23 +209,19 @@ impl Node {
     pub fn bulk_generate(&self, amount: usize) -> Result<Vec<Spaceflake>, String> {
         let mut node = Node::new(self.id);
         let mut worker = node.new_worker();
-        let mut spaceflakes = Vec::<Spaceflake>::new();
+        let mut spaceflakes = Vec::<Spaceflake>::with_capacity(amount);
 
         for i in 1..=amount {
             if i % ((MAX_12_BITS as usize * MAX_5_BITS as usize) + 1) == 0 {
                 thread::sleep(Duration::from_millis(1));
-                node.workers = Vec::<Worker>::new();
+                node.workers.clear();
                 worker = node.new_worker();
-            } else if i % MAX_12_BITS as usize == 0
-                && i % (MAX_12_BITS as usize * MAX_5_BITS as usize) != 0
-            {
+            } else if i % MAX_12_BITS as usize == 0 && i % (MAX_12_BITS as usize * MAX_5_BITS as usize) != 0 {
                 let new_worker = node.new_worker();
                 worker = new_worker;
             }
             match generate_on_node_and_worker(node.id, worker.clone(), None) {
-                Ok(spaceflake) => {
-                    spaceflakes.push(spaceflake);
-                }
+                Ok(spaceflake) => spaceflakes.push(spaceflake),
                 Err(error) => return Err(error),
             };
         }
@@ -234,6 +250,10 @@ pub struct Worker {
 /// The default implementation of a worker.
 impl Worker {
     fn new(id: u64, node_id: u64) -> Self {
+        if id > MAX_12_BITS {
+            panic!("Worker ID must be less than {}", MAX_12_BITS);
+        }
+
         Worker {
             id,
             base_epoch: EPOCH,
@@ -244,19 +264,19 @@ impl Worker {
     }
 
     /// Generate a new Spaceflake on this worker.
-    pub fn generate(&mut self) -> Result<Spaceflake, String> {
+    pub fn generate(&self) -> Result<Spaceflake, String> {
         generate_on_node_and_worker(self.node_id, self.clone(), None)
     }
 
     /// Generate a new Spaceflake on this worker at a specific time.
-    pub fn generate_at(&mut self, at: u64) -> Result<Spaceflake, String> {
+    pub fn generate_at(&self, at: u64) -> Result<Spaceflake, String> {
         generate_on_node_and_worker(self.node_id, self.clone(), Option::from(at))
     }
 
     /// Generate an amount of Spaceflakes on the worker.
     ///
     /// It will automatically sleep of a millisecond, only if needed, to prevent duplicated Spaceflakes to get generated.
-    pub fn bulk_generate(&mut self, amount: usize) -> Result<Vec<Spaceflake>, String> {
+    pub fn bulk_generate(&self, amount: usize) -> Result<Vec<Spaceflake>, String> {
         let mut spaceflakes = Vec::<Spaceflake>::new();
 
         for i in 1..=amount {
@@ -352,6 +372,13 @@ pub struct GeneratorSettings {
 impl GeneratorSettings {
     /// Create a new generator settings for the given node and worker IDs.
     pub fn new(node_id: u64, worker_id: u64) -> Self {
+        if node_id > MAX_5_BITS {
+            panic!("Node ID must be less than {}", MAX_5_BITS);
+        }
+        if worker_id > MAX_12_BITS {
+            panic!("Worker ID must be less than {}", MAX_12_BITS);
+        }
+
         GeneratorSettings {
             base_epoch: EPOCH,
             node_id,
@@ -416,39 +443,12 @@ pub fn parse_sequence(spaceflake_id: u64) -> u64 {
 
 /// Decompose a Spaceflake ID, and get a key-value hashmap with each part of a Spaceflake.
 pub fn decompose(spaceflake_id: u64, base_epoch: u64) -> HashMap<String, u64> {
-    HashMap::<String, u64>::from([
-        ("id".to_string(), spaceflake_id),
-        ("node_id".to_string(), parse_node_id(spaceflake_id)),
-        ("sequence".to_string(), parse_sequence(spaceflake_id)),
-        ("time".to_string(), parse_time(spaceflake_id, base_epoch)),
-        ("worker_id".to_string(), parse_worker_id(spaceflake_id)),
-    ])
+    Spaceflake::new(spaceflake_id, base_epoch).decompose()
 }
 
 /// Decompose a Spaceflake ID, and get a key-value hashmap with each part of a Spaceflake in binary.
 pub fn decompose_binary(spaceflake_id: u64, base_epoch: u64) -> HashMap<String, String> {
-    HashMap::<String, String>::from([
-        (
-            "id".to_string(),
-            pad_left(decimal_binary(spaceflake_id), 64),
-        ),
-        (
-            "node_id".to_string(),
-            pad_left(decimal_binary(parse_node_id(spaceflake_id)), 5),
-        ),
-        (
-            "sequence".to_string(),
-            pad_left(decimal_binary(parse_sequence(spaceflake_id)), 12),
-        ),
-        (
-            "time".to_string(),
-            pad_left(decimal_binary(parse_time(spaceflake_id, base_epoch)), 41),
-        ),
-        (
-            "worker_id".to_string(),
-            pad_left(decimal_binary(parse_worker_id(spaceflake_id)), 5),
-        ),
-    ])
+    Spaceflake::new(spaceflake_id, base_epoch).decompose_binary()
 }
 
 /// Generates a Spaceflake for a given worker and node ID.
@@ -486,8 +486,6 @@ fn generate_on_node_and_worker(
         ));
     }
 
-    let mut spaceflake = Spaceflake::default();
-
     let mut increment = worker.increment.lock().unwrap();
     if *increment >= MAX_12_BITS {
         *increment = 0
@@ -505,14 +503,9 @@ fn generate_on_node_and_worker(
     }
     drop(increment);
     let sequence = pad_left(decimal_binary(actual_sequence), 12);
-    let binary_id = format!("0{}{}{}{}", base, node_id, worker_id, sequence);
-    let id = binary_decimal(binary_id.clone());
+    let id = binary_decimal(format!("0{}{}{}{}", base, node_id, worker_id, sequence));
 
-    spaceflake.base_epoch = worker.base_epoch;
-    spaceflake.binary_id = binary_id;
-    spaceflake.id = id;
-
-    Ok(spaceflake)
+    Ok(Spaceflake::new(id, worker.base_epoch))
 }
 
 /// Convert a decimal number to a binary number.

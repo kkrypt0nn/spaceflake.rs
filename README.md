@@ -6,6 +6,7 @@
 
 # ❄ spaceflake.rs ❄
 
+[![Discord Server Badge](https://img.shields.io/discord/1358456011316396295?logo=discord)](https://discord.gg/xj6y5ZaTMr)
 [![Crates.io Badge](https://img.shields.io/crates/v/spaceflake.svg)](https://crates.io/crates/spaceflake)
 [![CI Badge](https://github.com/kkrypt0nn/spaceflake.rs/actions/workflows/ci.yml/badge.svg)](https://github.com/kkrypt0nn/spaceflake.rs/actions)
 [![Dependency Status Badge](https://deps.rs/repo/github/kkrypt0nn/spaceflake.rs/status.svg)](https://deps.rs/repo/github/kkrypt0nn/spaceflake.rs)

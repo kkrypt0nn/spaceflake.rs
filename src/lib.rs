@@ -1,11 +1,10 @@
 #![allow(clippy::needless_doctest_main)]
 
+use rand::Rng;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fmt, thread};
-
-use rand::Rng;
 
 /// The default epoch used **with milliseconds**, which is the 1st of January 2015 at 12:00:00 AM GMT.
 pub const EPOCH: u64 = 1420070400000;
@@ -15,6 +14,9 @@ const MAX_5_BITS: u64 = 31;
 
 /// The maximum number that can be set with 12 bits.
 const MAX_12_BITS: u64 = 4095;
+
+/// The maximum amount of milliseconds for clock drift tolerance.
+const CLOCK_DRIFT_TOLERANCE_MS: u64 = 10;
 
 /// A Spaceflake is the internal name for a Snowflake ID.
 ///
@@ -238,6 +240,8 @@ pub struct Worker {
     pub sequence: u64,
     /// The incremented number of the worker, used for the sequence.
     increment: Arc<Mutex<u64>>,
+    /// The timestamp of the most recently generated Spaceflake, used to prevent clock drifting.
+    last_timestamp: u64,
 }
 
 /// The default implementation of a worker.
@@ -253,6 +257,7 @@ impl Worker {
             node_id,
             sequence: 0,
             increment: Arc::new(Mutex::new(0)),
+            last_timestamp: 0,
         }
     }
 
@@ -394,7 +399,7 @@ impl Default for GeneratorSettings {
 pub fn generate(settings: GeneratorSettings) -> Result<Spaceflake, String> {
     let mut worker = Worker::new(settings.worker_id, settings.node_id);
     if settings.sequence == 0 {
-        worker.sequence = rand::thread_rng().gen_range(1..=MAX_12_BITS);
+        worker.sequence = rand::rng().random_range(1..=MAX_12_BITS);
     } else {
         worker.sequence = settings.sequence;
     }
@@ -407,7 +412,7 @@ pub fn generate(settings: GeneratorSettings) -> Result<Spaceflake, String> {
 pub fn generate_at(settings: GeneratorSettings, at: u64) -> Result<Spaceflake, String> {
     let mut worker = Worker::new(settings.worker_id, settings.node_id);
     if settings.sequence == 0 {
-        worker.sequence = rand::thread_rng().gen_range(1..=MAX_12_BITS);
+        worker.sequence = rand::rng().random_range(1..=MAX_12_BITS);
     } else {
         worker.sequence = settings.sequence;
     }
@@ -447,7 +452,7 @@ pub fn decompose_binary(spaceflake_id: u64, base_epoch: u64) -> HashMap<String, 
 /// Generates a Spaceflake for a given worker and node ID.
 fn generate_on_node_and_worker(
     node_id: u64,
-    worker: Worker,
+    mut worker: Worker,
     at: Option<u64>,
 ) -> Result<Spaceflake, String> {
     let now = SystemTime::now()
@@ -479,13 +484,28 @@ fn generate_on_node_and_worker(
         ));
     }
 
+    let mut milliseconds = generate_at - worker.base_epoch;
+
+    if milliseconds < worker.last_timestamp {
+        let delta = worker.last_timestamp - milliseconds;
+        if delta >= CLOCK_DRIFT_TOLERANCE_MS {
+            return Err(format!("clock moved backwards by {}ms", delta));
+        }
+        thread::sleep(Duration::from_millis(delta + 1));
+
+        let now_after_sleep = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards?")
+            .as_millis() as u64;
+        milliseconds = now_after_sleep - worker.base_epoch;
+    }
+    worker.last_timestamp = milliseconds;
+
     let mut increment = worker.increment.lock().unwrap();
     if *increment >= MAX_12_BITS {
         *increment = 0
     }
     *increment += 1;
-
-    let milliseconds = generate_at - worker.base_epoch;
 
     let base = pad_left(decimal_binary(milliseconds), 41);
     let node_id = pad_left(decimal_binary(node_id), 5);

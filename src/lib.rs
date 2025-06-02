@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fmt, thread};
-
+use std::thread::sleep;
 use rand::Rng;
 
 /// The default epoch used **with milliseconds**, which is the 1st of January 2015 at 12:00:00 AM GMT.
@@ -15,6 +15,9 @@ const MAX_5_BITS: u64 = 31;
 
 /// The maximum number that can be set with 12 bits.
 const MAX_12_BITS: u64 = 4095;
+
+/// The maximum amount of milliseconds for clock drift tolerance.
+const CLOCK_DRIFT_TOLERANCE_MS: u64 = 10;
 
 /// A Spaceflake is the internal name for a Snowflake ID.
 ///
@@ -477,6 +480,11 @@ fn generate_on_node_and_worker(
         return Err(String::from(
             "The current time must be greater than the time you want to generate the Spaceflake at",
         ));
+    }
+
+    if generate_at + CLOCK_DRIFT_TOLERANCE_MS < now {
+        let delta = now - generate_at;
+        sleep(Duration::from_millis(delta + CLOCK_DRIFT_TOLERANCE_MS))
     }
 
     let mut increment = worker.increment.lock().unwrap();

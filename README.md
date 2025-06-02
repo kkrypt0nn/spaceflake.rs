@@ -26,8 +26,7 @@ can be found [here](https://krypton.ninja/Generating-unique-IDs-with-the-Snowfla
 
 Apart from being a crystal of snow, a snowflake is a form of unique identifier which is being used in distributed
 computing. It has specific parts and is 64 bits long in binary. I simply named my type of snowflake, a **Spaceflake**,
-as it does not compose of the same parts of a Twitter Snowflake and is being used
-for [Project Absence](https://github.com/ProjectAbsence) and other projects of myself.
+as it does not compose of the same parts of a Twitter Snowflake and is being used in my personal projects.
 
 ### Structure
 

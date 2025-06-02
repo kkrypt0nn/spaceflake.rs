@@ -241,6 +241,7 @@ pub struct Worker {
     pub sequence: u64,
     /// The incremented number of the worker, used for the sequence.
     increment: Arc<Mutex<u64>>,
+    last_timestamp: u64,
 }
 
 /// The default implementation of a worker.
@@ -256,6 +257,7 @@ impl Worker {
             node_id,
             sequence: 0,
             increment: Arc::new(Mutex::new(0)),
+            last_timestamp: 0,
         }
     }
 
@@ -320,7 +322,7 @@ pub fn bulk_generate(settings: BulkGeneratorSettings) -> Result<Vec<Spaceflake>,
     let mut spaceflakes = Vec::<Spaceflake>::new();
     for i in 1..=settings.amount {
         if i % ((MAX_12_BITS * MAX_5_BITS * MAX_5_BITS) as usize) == 0 {
-            thread::sleep(Duration::from_millis(1));
+            sleep(Duration::from_millis(1));
             let mut new_node = Node::new(1);
             let mut new_worker = new_node.new_worker();
             new_worker.base_epoch = settings.base_epoch;
@@ -450,7 +452,7 @@ pub fn decompose_binary(spaceflake_id: u64, base_epoch: u64) -> HashMap<String, 
 /// Generates a Spaceflake for a given worker and node ID.
 fn generate_on_node_and_worker(
     node_id: u64,
-    worker: Worker,
+    mut worker: Worker,
     at: Option<u64>,
 ) -> Result<Spaceflake, String> {
     let now = SystemTime::now()
@@ -482,10 +484,27 @@ fn generate_on_node_and_worker(
         ));
     }
 
-    if generate_at + CLOCK_DRIFT_TOLERANCE_MS < now {
-        let delta = now - generate_at;
-        sleep(Duration::from_millis(delta + CLOCK_DRIFT_TOLERANCE_MS))
+    let mut milliseconds = generate_at - worker.base_epoch;
+    
+    if milliseconds < worker.last_timestamp {
+        let delta = worker.last_timestamp - milliseconds;
+
+        if delta >= CLOCK_DRIFT_TOLERANCE_MS {
+            return Err(format!("clock moved backwards by {}ms", delta));
+        }
+
+        sleep(Duration::from_millis(delta + 1));
+
+        let now_after_sleep = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards?")
+            .as_millis() as u64;
+
+        milliseconds = now_after_sleep - worker.base_epoch;
     }
+
+    worker.last_timestamp = milliseconds;
+
 
     let mut increment = worker.increment.lock().unwrap();
     if *increment >= MAX_12_BITS {

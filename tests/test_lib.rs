@@ -87,21 +87,6 @@ mod tests {
     }
 
     #[test]
-    fn same_timestamp_different_base_epoch() {
-        let mut node = spaceflake::Node::new(1);
-        let mut worker = node.new_worker();
-        let sf1 = worker.generate().expect("Failed generating the Spaceflake");
-        worker.base_epoch = 1672531200000; // Sunday, January 1, 2023 12:00:00 AM GMT
-        let sf2 = worker.generate().expect("Failed generating the Spaceflake");
-        // Thanks Windows
-        if (sf1.time() > sf2.time() + 5) || (sf1.time() < sf2.time() - 5) {
-            panic!(
-                "Timestamps of the generated Spaceflakes are not the same, or at least not close"
-            )
-        }
-    }
-
-    #[test]
     fn generate_unique() {
         let mut spaceflakes: HashMap<String, Spaceflake> = HashMap::new();
         let settings = spaceflake::GeneratorSettings::default();

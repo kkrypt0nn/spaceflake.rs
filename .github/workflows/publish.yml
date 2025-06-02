@@ -1,4 +1,4 @@
-name: spaceflake.rs CD (Publish)
+name: Spaceflake Rust CD (Publish)
 
 on:
   push:
@@ -6,11 +6,8 @@ on:
       - "*"
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  test:
+  publish:
     name: Publish
     runs-on: ubuntu-latest
     steps:

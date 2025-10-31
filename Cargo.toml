@@ -1,7 +1,7 @@
 [package]
 name = "spaceflake"
 description = "⛄ A distributed generator to create unique IDs with ease in Rust; inspired by Twitter's Snowflake"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2024"
 license-file = "LICENSE.md"
 readme = "README.md"

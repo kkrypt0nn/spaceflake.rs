@@ -1,9 +1,5 @@
 <div align="center">
 
-<!-- 
-    Some image for the logo here, if there is any.
--->
-
 # ❄ spaceflake.rs ❄
 
 [![Discord Server Badge](https://img.shields.io/discord/1358456011316396295?logo=discord)](https://discord.gg/xj6y5ZaTMr)

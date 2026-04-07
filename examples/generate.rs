@@ -1,4 +1,4 @@
-extern crate spaceflake;
+use spaceflake;
 
 fn main() {
     let mut settings = spaceflake::GeneratorSettings {

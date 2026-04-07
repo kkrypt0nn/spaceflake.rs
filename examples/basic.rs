@@ -1,4 +1,4 @@
-extern crate spaceflake;
+use spaceflake;
 
 fn main() {
     let mut node = spaceflake::Node::new(1);

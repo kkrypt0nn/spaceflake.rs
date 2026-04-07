@@ -1,4 +1,4 @@
-extern crate spaceflake;
+use spaceflake;
 
 fn main() {
     let settings = spaceflake::BulkGeneratorSettings::new(2_000_000);
